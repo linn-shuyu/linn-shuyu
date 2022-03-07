@@ -1,0 +1,59 @@
+setwd("G:/")
+
+#Import data set created in "ABCD AE Aim 1" r script
+myData <- read.csv("ABCD_AE_Aim1a.csv", header=TRUE)
+
+#Extract covariates
+myvars <- c("subjectkey",
+             "interview_age",
+             "demo_relig_v2_l",
+             "race.eth.8level",
+             "rel_family_id",
+             "site_id_l",
+             "aeq_section_q01",
+             "aeq_section_q02",
+             "aeq_section_q03",
+             "aeq_section_q04",
+             "aeq_section_q05",
+             "aeq_section_q06",
+             "aeq_section_q07",
+             "AE_General_Positive_Effects",
+             "AE_Potential_Negative_Effects",
+             "Mother_alcohol_use",
+             "Father_alcohol_use",
+             "Sip")
+ 
+myData <- myData[myvars]
+
+#Change NHPI to "Other" for analyses 
+myData$race.eth.8level[myData$race.eth.8level == "NHPI"] <- "Other"
+
+#Collapse religion into 0=Not religious, 1=Religious
+myData$religious[myData$demo_relig_v2_l=="Christian"] <- 1
+myData$religious[myData$demo_relig_v2_l=="Jewish"] <- 1
+myData$religious[myData$demo_relig_v2_l=="Muslim"] <- 1
+myData$religious[myData$demo_relig_v2_l=="Buddhist"] <- 1
+myData$religious[myData$demo_relig_v2_l=="Hindu"] <- 1
+myData$religious[myData$demo_relig_v2_l=="Atheist"] <- 0
+myData$religious[myData$demo_relig_v2_l=="Agnostic"] <- 0
+myData$religious[myData$demo_relig_v2_l=="Something else"] <- 1
+myData$religious[myData$demo_relig_v2_l=="Nothing"] <- 0
+
+#Convert back to factor
+myData$religious <- factor(myData$religious,
+                               levels = c(0,1),
+                               labels = c("Not religious", "Religious"))
+
+#Create parent alcohol problematic use variable
+myData$Parent_alcohol_use[myData$Mother_alcohol_use=="No" && myData$Father_alcohol_use=="No"] <- 0
+myData$Parent_alcohol_use[myData$Mother_alcohol_use=="Yes" | myData$Father_alcohol_use=="Yes"] <- 1
+myData$Parent_alcohol_use[myData$Mother_alcohol_use=="No" && myData$Father_alcohol_use=="Yes"] <- 1
+myData$Parent_alcohol_use[myData$Mother_alcohol_use=="Yes" && myData$Father_alcohol_use=="No"] <- 1
+
+#Convert back to factor
+myData$Parent_alcohol_use <- factor(myData$Parent_alcohol_use,
+                           levels = c(0,1),
+                           labels = c("No", "Yes"))
+
+
+#write.csv(myData, file="ABCD_AE_Aim2.csv", row.names = FALSE)

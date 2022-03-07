@@ -1,0 +1,57 @@
+setwd("G:/")
+
+#Import data set that was used in Aim 1b
+Yes_Sip <- read.csv("ABCD_AE_Aim1b.csv", header=TRUE, stringsAsFactors = FALSE)
+
+myvars <- c("subjectkey",
+            "rel_family_id",
+            "site_id_l",
+            "AE_General_Positive_Effects",
+            "AE_Potential_Negative_Effects",
+            "Total_Sips",
+            "Sip_Age",
+            "Finished_Drink",
+            "Alcohol_Type",
+            "Who_Drink_Belonged_To",
+            "Offered_Sip",
+            "Remember_Sip")
+
+Yes_Sip <- Yes_Sip[myvars]
+
+#Collapse type of alcohol into 1 = Beer, 2 = Wine/champagne, and 3 = Other
+Yes_Sip$Alcohol_Type[Yes_Sip$Alcohol_Type=="Beer"] <- 1
+Yes_Sip$Alcohol_Type[Yes_Sip$Alcohol_Type=="Wine coolers"] <- 3
+Yes_Sip$Alcohol_Type[Yes_Sip$Alcohol_Type=="Shots of hard alcohol"] <- 3
+Yes_Sip$Alcohol_Type[Yes_Sip$Alcohol_Type=="Mixed drinks"] <- 3
+Yes_Sip$Alcohol_Type[Yes_Sip$Alcohol_Type=="Malt liquor"] <- 3
+Yes_Sip$Alcohol_Type[Yes_Sip$Alcohol_Type=="Wine/champagne"] <- 2
+Yes_Sip$Alcohol_Type[Yes_Sip$Alcohol_Type=="Fortified wine"] <- 3
+Yes_Sip$Alcohol_Type[Yes_Sip$Alcohol_Type=="Liqueurs/Cordials"] <- 3
+Yes_Sip$Alcohol_Type[Yes_Sip$Alcohol_Type=="Other"] <- 3
+Yes_Sip$Alcohol_Type[Yes_Sip$Alcohol_Type=="I don't know"] <- 3
+
+#Convert back to factor
+Yes_Sip$Alcohol_Type <- factor(Yes_Sip$Alcohol_Type,
+                               levels = c(1,2,3),
+                               labels = c("Beer", "Wine/champagne", "Other"))
+
+#Collapse who drink belonged to into 1 = Mom, 2 = Dad, 3 = Other family member, and 4 = Other
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="Mom"] <- 1
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="Dad"] <- 2
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="Other guardian"] <- 3
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="An uncle or aunt"] <- 3
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="Brother or sister who was age 21 or older"] <- 3
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="Brother or sister who was age 20 or younger"] <- 3
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="Other adult (non-guardian) family member"] <- 3
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="Another adult"] <- 4
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="Friend"] <- 4
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="Other young person who is not a friend (20 years or younger)"] <- 4
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="I didn't know the person/it was a stranger"] <- 4
+Yes_Sip$Who_Drink_Belonged_To[Yes_Sip$Who_Drink_Belonged_To=="I don't know who the drink belonged to"] <- 4
+
+#convert back to factor
+Yes_Sip$Who_Drink_Belonged_To <- factor(Yes_Sip$Who_Drink_Belonged_To,
+                                        levels = c(1,2,3,4),
+                                        labels = c("Mom", "Dad", "Other family member", "Other"))
+
+#write.csv(Yes_Sip, file="ABCD_AE_Aim3.csv", row.names=FALSE)

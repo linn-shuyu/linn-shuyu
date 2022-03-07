@@ -1,0 +1,70 @@
+setwd("G:/")
+
+#Load packages
+library(QuantPsyc)
+library(psych)
+library(dplyr)
+library(lme4)
+library(lmerTest)
+library(plotrix)
+
+Aim2_data <- read.csv("ABCD_AE_Aim2.csv", header=TRUE)
+
+#Calculate Cronbach's alpha for AE positive and negative subscales
+Positive_AEs <- subset(Aim2_data, select = c(aeq_section_q01, aeq_section_q02, aeq_section_q04, aeq_section_q06))
+alpha(Positive_AEs)
+
+Negative_AEs <- subset(Aim2_data, select = c(aeq_section_q03, aeq_section_q05, aeq_section_q07))
+alpha(Negative_AEs)
+
+###Optional Sensitivity Analysis###
+#For sensitivity analysis only: remove kids who accidentally or intentionally took a sip (n = 268) 
+#Import list of subjectkeys to exclude (list was manually created and cases were manually identified)
+#Sensitivity_analysis_excluded_cases <- read.csv("ABCD_AE_sensitivity_analysis_excluded_subjects.csv", header=TRUE)
+
+#Antijoin with Aim 2 data to remove them
+#Aim2_data <- anti_join(Aim2_data, Sensitivity_analysis_excluded_cases, by="subjectkey")
+
+#Mixed effects model
+Aim2_data <- within(Aim2_data, race.eth.8level <- relevel(race.eth.8level, ref = "White"))
+
+#Convert family ID and site ID to factors
+Aim2_data$rel_family_id <- as.factor(Aim2_data$rel_family_id)
+Aim2_data$site_id_l <- as.factor(Aim2_data$site_id_l)
+
+#Positive AEs
+Testlog_1 <- lmer(AE_General_Positive_Effects ~ Sip + interview_age + race.eth.8level + religious + Parent_alcohol_use+(1|site_id_l/rel_family_id), data = Aim2_data)
+
+summary(Testlog_1)
+
+anova(Testlog_1)
+
+#Negative AEs
+Testlog_2 <- lmer(AE_Potential_Negative_Effects ~ Sip + interview_age + race.eth.8level + religious + Parent_alcohol_use+(1|site_id_l/rel_family_id), data = Aim2_data)
+
+summary(Testlog_2)
+
+anova(Testlog_2)
+
+#For Figure 1
+#Compute mean of positive AEs in sippers and non-sippers
+Yes_Sip <- subset(Aim2_data, Sip == "Yes")
+
+No_Sip <- subset(Aim2_data, Sip == "No")
+
+describe(Yes_Sip$AE_General_Positive_Effects)
+
+describe(Yes_Sip$AE_Potential_Negative_Effects)
+
+describe(No_Sip$AE_General_Positive_Effects)
+
+describe(No_Sip$AE_Potential_Negative_Effects)
+
+#Calculate standard error
+std.error(Yes_Sip$AE_General_Positive_Effects)
+
+std.error(Yes_Sip$AE_Potential_Negative_Effects)
+
+std.error(No_Sip$AE_General_Positive_Effects)
+
+std.error(No_Sip$AE_Potential_Negative_Effects)

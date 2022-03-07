@@ -1,0 +1,18 @@
+setwd("G:/")
+
+#Load packages
+library(summarytools)
+library(psych)
+
+Sipcontext_data <- read.csv("ABCD_AE_Aim1b.csv", header=TRUE)
+
+###Continuous measures###
+apply(Sipcontext_data[c("Total_Sips", 
+                        "Sip_Age")], 2, describe)
+
+###Categorical measures###
+apply(Sipcontext_data[c("Finished_Drink", 
+                        "Alcohol_Type", 
+                        "Who_Drink_Belonged_To", 
+                        "Offered_Sip", 
+                        "Remember_Sip")], 2, freq, order="freq")

@@ -1,0 +1,89 @@
+setwd("G:/")
+
+#Load packages
+library(QuantPsyc)
+library(summarytools)
+library(psych)
+library(dplyr)
+library(lme4)
+library(lmerTest)
+library(gmodels)
+
+Aim1_data <- read.csv("ABCD_AE_Aim1a.csv", header=TRUE)
+
+######Descriptive statistics#######
+# Frequency and percent of total sample who have and haven't sipped (0 = No, 1 = Yes) 
+freq(Aim1_data$Sip, order="freq")
+
+#Frequencies and row %s of variables by sipping status
+CrossTable(Aim1_data$Sex, Aim1_data$Sip, digits=1, prop.r=TRUE, prop.c = FALSE, prop.t = FALSE, format = "SPSS")
+
+CrossTable(Aim1_data$demo_comb_income_v2_l, Aim1_data$Sip, digits=1, prop.r=TRUE, prop.c = FALSE, prop.t = FALSE, format = "SPSS")
+
+CrossTable(Aim1_data$race.eth.8level, Aim1_data$Sip, digits=1, prop.r=TRUE, prop.c = FALSE, prop.t = FALSE, format = "SPSS")
+
+CrossTable(Aim1_data$demo_prnt_empl_v2_l, Aim1_data$Sip, digits=1, prop.r=TRUE, prop.c = FALSE, prop.t = FALSE, format = "SPSS")
+
+CrossTable(Aim1_data$demo_relig_v2_l, Aim1_data$Sip, digits=1, prop.r=TRUE, prop.c = FALSE, prop.t = FALSE, format = "SPSS")
+
+CrossTable(Aim1_data$demo_prnt_marital_v2_l, Aim1_data$Sip, digits=1, prop.r=TRUE, prop.c = FALSE, prop.t = FALSE, format = "SPSS")
+
+CrossTable(Aim1_data$Mother_alcohol_use, Aim1_data$Sip, digits=1, prop.r=TRUE, prop.c = FALSE, prop.t = FALSE, format = "SPSS")
+
+CrossTable(Aim1_data$Father_alcohol_use, Aim1_data$Sip, digits=1, prop.r=TRUE, prop.c = FALSE, prop.t = FALSE, format = "SPSS")
+
+#Frequencies and percents of continuous measures for participants who have sipped  
+#Make data set for participants who have sipped
+Yes_Sip <- subset(Aim1_data, Sip == "Yes")
+
+#Mean and SD of continuous measures for children who have sipped 
+apply(Yes_Sip[c("interview_age", 
+                "demo_prnt_ed_v2_l")], 2, describe)
+
+#Make data set for participants who have not sipped
+No_Sip <- subset(Aim1_data, Sip == "No")
+
+#Mean and SD of continuous measures for children who have not sipped  
+apply(No_Sip[c("interview_age", 
+                "demo_prnt_ed_v2_l")], 2, describe)
+
+###Optional Sensitivity Analysis###
+#For sensitivity analysis only: remove kids who accidentally or intentionally took a sip (n = 268) 
+#Import list of subjectkeys to exclude (list was manually created and cases were manually identified)
+#Sensitivity_analysis_excluded_cases <- read.csv("ABCD_AE_sensitivity_analysis_excluded_subjects.csv", header=TRUE)
+
+#Antijoin with Aim 1a data to remove them
+#Aim1_data <- anti_join(Aim1_data, Sensitivity_analysis_excluded_cases, by="subjectkey")
+
+#Change NHPI to "Other" for analyses 
+Aim1_data$race.eth.8level[Aim1_data$race.eth.8level == "NHPI"] <- "Other"
+
+#Mixed effects model
+Aim1_data <- within(Aim1_data, race.eth.8level <- relevel(race.eth.8level, ref = "White"))
+
+Aim1_data <- within(Aim1_data, demo_relig_v2_l <- relevel(demo_relig_v2_l, ref = "Christian"))
+
+Aim1_data <- within(Aim1_data, demo_comb_income_v2_l <- relevel(demo_comb_income_v2_l, ref = ">$100,000"))
+
+#Convert family ID and site ID to factors
+Aim1_data$rel_family_id <- as.factor(Aim1_data$rel_family_id)
+Aim1_data$site_id_l <- as.factor(Aim1_data$site_id_l)
+
+#Convert Sip to numeric (only necessary for Aim 1a)
+Aim1_data$Sip <- as.character(Aim1_data$Sip)
+Aim1_data$Sip[Aim1_data$Sip=="Yes"] <- 1
+Aim1_data$Sip[Aim1_data$Sip=="No"] <- 0
+Aim1_data$Sip <- as.numeric(Aim1_data$Sip)
+
+#Using site ID as a random effect b/c family ID resulted in large differences between mer and gam
+library(gamm4)
+Testlog <- gamm4(Sip ~ Sex+ demo_comb_income_v2_l+ race.eth.8level+ demo_relig_v2_l+ demo_prnt_empl_v2_l+ demo_prnt_marital_v2_l+ 
+                      Mother_alcohol_use+ Father_alcohol_use+ interview_age+ demo_prnt_ed_v2_l, random = ~(1|site_id_l),
+                    family=binomial, data=Aim1_data)
+
+summary(Testlog$mer)
+summary(Testlog$gam)
+anova(Testlog$mer)
+anova(Testlog$gam)
+
+#Estimates were manually converted from log odds to odds ratio in excel using the formula "=exp(number)"
