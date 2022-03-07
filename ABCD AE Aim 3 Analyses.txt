@@ -1,0 +1,48 @@
+setwd("G:/")
+
+#Load packages
+library(QuantPsyc)
+library(sjstats)
+library(dplyr)
+library(lme4)
+library(lmerTest)
+
+Aim3_data <- read.csv("ABCD_AE_Aim3.csv", header=TRUE)
+
+###Optional Sensitivity Analysis###
+#For sensitivity analysis only: remove kids who accidentally or intentionally took a sip (n = 268) 
+#Import list of subjectkeys to exclude (list was manually created and cases were manually identified)
+#Sensitivity_analysis_excluded_cases <- read.csv("ABCD_AE_sensitivity_analysis_excluded_subjects.csv", header=TRUE)
+
+#Antijoin with Aim 3 data to remove them
+#Aim3_data <- anti_join(Aim3_data, Sensitivity_analysis_excluded_cases, by="subjectkey")
+
+#Mixed effects model
+Aim3_data <- within(Aim3_data, Who_Drink_Belonged_To <- relevel(Who_Drink_Belonged_To, ref = "Dad"))
+
+Aim3_data <- within(Aim3_data, Offered_Sip <- relevel(Offered_Sip, ref = "They offered me a sip"))
+
+#Convert family ID and site ID to factors
+Aim3_data$rel_family_id <- as.factor(Aim3_data$rel_family_id)
+Aim3_data$site_id_l <- as.factor(Aim3_data$site_id_l)
+
+#There is a singularity warning because site variance is 0, running without including site has no impact on results
+#Positive AEs
+Testlog_1 <- lmer(AE_General_Positive_Effects ~ Finished_Drink + Alcohol_Type + Who_Drink_Belonged_To + Offered_Sip + Remember_Sip+(1|site_id_l/rel_family_id), data = Aim3_data)
+
+#Use the equation below for sensitivity analysis only (removed Offered_Sip b/c lmer requires that vars have 2 or more levels)
+#Testlog_1 <- lmer(AE_General_Positive_Effects ~ Finished_Drink + Alcohol_Type + Who_Drink_Belonged_To + Remember_Sip+(1|site_id_l/rel_family_id), data = Aim3_data)
+
+summary(Testlog_1)
+
+anova(Testlog_1)
+
+#Negative AEs
+Testlog_2 <- lmer(AE_Potential_Negative_Effects ~ Finished_Drink + Alcohol_Type + Who_Drink_Belonged_To + Offered_Sip + Remember_Sip+(1|site_id_l/rel_family_id), data = Aim3_data)
+
+#Use the equation below for sensitivity analysis only (removed Offered_Sip b/c lmer requires that vars have 2 or more levels)
+#Testlog_2 <- lmer(AE_Potential_Negative_Effects ~ Finished_Drink + Alcohol_Type + Who_Drink_Belonged_To + Remember_Sip+(1|site_id_l/rel_family_id), data = Aim3_data)
+
+summary(Testlog_2)
+
+anova(Testlog_2)

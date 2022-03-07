@@ -1,0 +1,27 @@
+# ABCD AE project FDR correction
+#Pvals were taken from the r analyses to allow inclusion of the full p value.
+
+#load packages
+library(data.table)
+library(stats)
+
+setwd("G:/")
+
+# load data
+Aim1_pvals <- fread("ABCD_AE_Aim1a_pvals.txt")
+Aim2_pvals <- fread("ABCD_AE_Aim2_pvals.txt")
+Aim3_pvals <- fread("ABCD_AE_Aim3_pvals.txt")
+
+#convert to matrix
+pvalmatrix1 <- as.matrix(Aim1_pvals)
+pvalmatrix2 <- as.matrix(Aim2_pvals)
+pvalmatrix3 <- as.matrix(Aim3_pvals)
+
+#run p.adjust to generate adjusted pvalues [https://stat.ethz.ch/R-manual/R-devel/library/stats/html/p.adjust.html]
+adjpval1 <- p.adjust(pvalmatrix1, "fdr")
+adjpval2 <- p.adjust(pvalmatrix2, "fdr")
+adjpval3 <- p.adjust(pvalmatrix3, "fdr")
+
+write.csv(adjpval1, file="Aim1a_adjpvals.csv", row.names=FALSE)
+write.csv(adjpval2, file="Aim2_adjpvals.csv", row.names=FALSE)
+write.csv(adjpval3, file="Aim3_adjpvals.csv", row.names=FALSE)

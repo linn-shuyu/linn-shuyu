@@ -1,0 +1,500 @@
+#All raw ABCD files were converted from .txt to .csv and the second line was removed. 
+#Description of r scripts:
+# "ABCD AE Aim 1": extracts relevant ABCD raw data for all aims, imputes vars, creates .csv files to be used in Aim 1a (Table 1) and Aim 1b (Table 2) analyses
+#" ABCD AE Aim 1a Analyses": computes frequencies, descriptive statistics, and significance tests for Aim 1a (Table 1)
+# "ABCD AE Aim 1b Analyses": computes frequencies and descriptive statistics for Aim 1b (Table 2)
+# "ABCD AE Aim 2": imports the .csv file created for ABCD AE Aim 1a, collapses some vars to aid in Aim 2 regression analyses, and creates a .csv file to be used in Aim 2 analyses
+# "ABCD AE Aim 2 Analyses": imports the .csv file created in the "ABCD AE Aim 2.R" r script, calculates reliability estimates, correlation, and regression
+# "ABCD AE Aim 3": imports the .csv file created for ABCD AE Aim 1b, collapses context vars to aid in Aim 3 ANOVA analyses 
+# "ABCD AE Aim 3 Analyses": imports the .csv file created in the "ABCD AE Aim 3.R" r script, converts vars to factors to aid in ANOVA analyses, computes ANOVA
+# "ABCD AE Pval FDR Correction": calculates the FDR correction for all pvals (which are listed in 3 txt files- 1 for each aim. These files were manually created).
+# "ABCD_AE_sensitivity_analysis_excluded_subjects.csv": A list of 268 subject keys of children who accidentally or intentionally took a sip. This dataset was manually created.
+
+setwd("G:/")
+
+#Load packages
+library(plyr)
+library(dplyr)
+library(psych)
+library(mice)
+
+#Import baseline demographics (participant race/ethnicity was only assessed at baseline)
+Demo_Baseline <- read.csv("pdem02.csv", header=TRUE)
+
+myvars <- c("subjectkey",
+            "demo_race_a_p___10",
+            "demo_race_a_p___11",
+            "demo_race_a_p___12",
+            "demo_race_a_p___13",
+            "demo_race_a_p___14",
+            "demo_race_a_p___15",
+            "demo_race_a_p___16",
+            "demo_race_a_p___17",
+            "demo_race_a_p___18",
+            "demo_race_a_p___19",
+            "demo_race_a_p___20",
+            "demo_race_a_p___21",
+            "demo_race_a_p___22",
+            "demo_race_a_p___23",
+            "demo_race_a_p___24",
+            "demo_race_a_p___25",
+            "demo_ethn_v2")
+
+Demo_Baseline <- Demo_Baseline[myvars]
+
+#Construct 8-level race variable defined by Thompson at: 
+#https://github.com/ABCD-STUDY/analysis-nda/blob/master/notebooks/derived/core_demographic.md
+
+Demo_Baseline$demo_race_white= (Demo_Baseline$demo_race_a_p___10 == 1)*1
+Demo_Baseline$demo_race_black= (Demo_Baseline$demo_race_a_p___11 == 1)*1
+Demo_Baseline$demo_race_asian = 0
+Demo_Baseline$demo_race_asian[Demo_Baseline$demo_race_a_p___18 == 1 | Demo_Baseline$demo_race_a_p___19 == 1 | 
+                       Demo_Baseline$demo_race_a_p___20 == 1 | Demo_Baseline$demo_race_a_p___21 == 1 | 
+                       Demo_Baseline$demo_race_a_p___22 == 1 | Demo_Baseline$demo_race_a_p___23 == 1 |
+                       Demo_Baseline$demo_race_a_p___24==1] = 1
+Demo_Baseline$demo_race_aian = 0
+Demo_Baseline$demo_race_aian[Demo_Baseline$demo_race_a_p___12 == 1 | Demo_Baseline$demo_race_a_p___13 == 1] = 1
+Demo_Baseline$demo_race_nhpi = 0
+Demo_Baseline$demo_race_nhpi[Demo_Baseline$demo_race_a_p___14 == 1 | Demo_Baseline$demo_race_a_p___15 == 1 | 
+                      Demo_Baseline$demo_race_a_p___16 == 1 | Demo_Baseline$demo_race_a_p___17 == 1] = 1
+Demo_Baseline$demo_race_other = 0
+Demo_Baseline$demo_race_other[Demo_Baseline$demo_race_a_p___25 == 1] = 1
+Demo_Baseline$demo_race_mixed = Demo_Baseline$demo_race_white + Demo_Baseline$demo_race_black + Demo_Baseline$demo_race_asian + 
+  Demo_Baseline$demo_race_aian + Demo_Baseline$demo_race_nhpi + Demo_Baseline$demo_race_other
+
+Demo_Baseline$demo_race_mixed[ Demo_Baseline$demo_race_mixed <= 1] =  0
+Demo_Baseline$demo_race_mixed[ Demo_Baseline$demo_race_mixed > 1] =  1
+
+Demo_Baseline$race.eth.8level = NA
+Demo_Baseline$race.eth.8level[ Demo_Baseline$demo_race_white == 1] = 2
+Demo_Baseline$race.eth.8level[ Demo_Baseline$demo_race_black == 1] = 3
+Demo_Baseline$race.eth.8level[ Demo_Baseline$demo_race_asian == 1] = 4
+Demo_Baseline$race.eth.8level[ Demo_Baseline$demo_race_aian == 1]  = 5
+Demo_Baseline$race.eth.8level[ Demo_Baseline$demo_race_nhpi == 1]  = 6
+Demo_Baseline$race.eth.8level[ Demo_Baseline$demo_race_other == 1] = 7
+Demo_Baseline$race.eth.8level[ Demo_Baseline$demo_race_mixed == 1] = 8
+
+Demo_Baseline$race.eth.8level[Demo_Baseline$demo_ethn_v2 == 1] = 1
+
+Demo_Baseline$demo_race_hispanic=NA;
+Demo_Baseline$demo_race_hispanic[Demo_Baseline$demo_ethn_v2 == 1] =1
+Demo_Baseline$demo_race_hispanic[Demo_Baseline$demo_ethn_v2 == 2] =0
+
+Demo_Baseline$race.eth.8level <- factor(Demo_Baseline$race.eth.8level,
+                               levels = c(2,1,3,4,5,6,7,8),
+                               labels = c("White", "Hispanic", "Black", "Asian", "AIAN", "NHPI", "Other", "Mixed") )
+
+#Alternate 5-level factor
+#Demo_Baseline$race.ethnicity.5level = Demo_Baseline$race.eth.8level
+#Demo_Baseline$race.ethnicity.5level[!(Demo_Baseline$race.eth.8level=="White" | Demo_Baseline$race.eth.8level=="Black" |
+#                               Demo_Baseline$race.eth.8level=="Asian" | Demo_Baseline$race.eth.8level=="Hispanic")] = "Other"
+#Demo_Baseline$race.ethnicity.5level = droplevels(Demo_Baseline$race.ethnicity.5level)
+
+#Drop redundant variables (for imputation)
+Demo_Baseline <- subset(Demo_Baseline, select = c(subjectkey, race.eth.8level))
+
+#Import longitudinal demographics
+Demo_Longitudinal <- read.csv("abcd_lpds01.csv", header=TRUE)
+
+myvars <- c("subjectkey",
+            "interview_age",
+            "gender",
+            "demo_comb_income_v2_l",
+            "demo_prnt_empl_v2_l",
+            "demo_prnt_ed_v2_l",
+            "demo_relig_v2_l",
+            "demo_prnt_marital_v2_l")
+
+Demo_Longitudinal <- Demo_Longitudinal[myvars]
+
+Demo_Longitudinal$Sex[Demo_Longitudinal$gender=="M"] <- 0
+Demo_Longitudinal$Sex[Demo_Longitudinal$gender=="F"] <- 1
+
+#drop gender
+Demo_Longitudinal <- subset(Demo_Longitudinal, select = -c(gender))
+
+#Change refuse to answer to NA 
+Demo_Longitudinal$demo_comb_income_v2_l[Demo_Longitudinal$demo_comb_income_v2_l>776] <- NA
+Demo_Longitudinal$demo_prnt_empl_v2_l[Demo_Longitudinal$demo_prnt_empl_v2_l>776] <- NA
+Demo_Longitudinal$demo_prnt_ed_v2_l[Demo_Longitudinal$demo_prnt_ed_v2_l>776] <- NA
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l>776] <- NA
+Demo_Longitudinal$demo_prnt_marital_v2_l[Demo_Longitudinal$demo_prnt_marital_v2_l>776] <- NA
+
+#Collapse parent marital status into married or not married (1=Married, 2=Not married)
+Demo_Longitudinal$demo_prnt_marital_v2_l[Demo_Longitudinal$demo_prnt_marital_v2_l==3] <- 2
+Demo_Longitudinal$demo_prnt_marital_v2_l[Demo_Longitudinal$demo_prnt_marital_v2_l==4] <- 2
+Demo_Longitudinal$demo_prnt_marital_v2_l[Demo_Longitudinal$demo_prnt_marital_v2_l==5] <- 2
+Demo_Longitudinal$demo_prnt_marital_v2_l[Demo_Longitudinal$demo_prnt_marital_v2_l==6] <- 2
+
+#Collapse religion categories (1=Christian, 2=Jewish, 3=Muslim, 4=Buddhist, 5=Hindu, 6=Atheist, 7=Agnostic, 8=Something else, 9=Nothing)
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==2] <- 1
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==3] <- 1
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==4] <- 1
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==5] <- 2
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==6] <- 1
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==7] <- 1
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==8] <- 3
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==9] <- 4
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==10] <- 5
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==11] <- 1
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==12] <- 1
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==13] <- 1
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==14] <- 6
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==15] <- 7
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==16] <- 8
+Demo_Longitudinal$demo_relig_v2_l[Demo_Longitudinal$demo_relig_v2_l==17] <- 9
+
+#Collapse income (1=less than $35,000, 2=$35,000 to $99,999, 3=$100,000 and above)
+Demo_Longitudinal$demo_comb_income_v2_l[Demo_Longitudinal$demo_comb_income_v2_l<6] <- 1
+Demo_Longitudinal$demo_comb_income_v2_l[Demo_Longitudinal$demo_comb_income_v2_l>=6 & Demo_Longitudinal$demo_comb_income_v2_l<9] <- 2
+Demo_Longitudinal$demo_comb_income_v2_l[Demo_Longitudinal$demo_comb_income_v2_l>=9 & Demo_Longitudinal$demo_comb_income_v2_l<=776] <- 3
+
+#Collapse parent employment (1=Employed (Employed, Sick Leave, Maternity Leave), 
+#2=Unemployed (Temporarily laid off, Looking for work, Unemployed not looking for work, Stay at home parent), 3=Other (Student, Retired, Disabled, Other))
+Demo_Longitudinal$demo_prnt_empl_v2_l[Demo_Longitudinal$demo_prnt_empl_v2_l==9] <- 1
+Demo_Longitudinal$demo_prnt_empl_v2_l[Demo_Longitudinal$demo_prnt_empl_v2_l==10] <- 1
+Demo_Longitudinal$demo_prnt_empl_v2_l[Demo_Longitudinal$demo_prnt_empl_v2_l==3] <- 2
+Demo_Longitudinal$demo_prnt_empl_v2_l[Demo_Longitudinal$demo_prnt_empl_v2_l==11] <- 2
+Demo_Longitudinal$demo_prnt_empl_v2_l[Demo_Longitudinal$demo_prnt_empl_v2_l==6] <- 2
+Demo_Longitudinal$demo_prnt_empl_v2_l[Demo_Longitudinal$demo_prnt_empl_v2_l==4] <- 3
+Demo_Longitudinal$demo_prnt_empl_v2_l[Demo_Longitudinal$demo_prnt_empl_v2_l==5] <- 3
+Demo_Longitudinal$demo_prnt_empl_v2_l[Demo_Longitudinal$demo_prnt_empl_v2_l==7] <- 3
+Demo_Longitudinal$demo_prnt_empl_v2_l[Demo_Longitudinal$demo_prnt_empl_v2_l==8] <- 3
+
+#Import Alcohol Expectancy Questionnaire (AEQ)
+Alcohol_Expectancies <- read.csv("abcd_yam01.csv", header=TRUE)
+
+myvars <- c("subjectkey",
+            "aeq_section_q01",        
+            "aeq_section_q02",
+            "aeq_section_q03",
+            "aeq_section_q04",
+            "aeq_section_q05",
+            "aeq_section_q06",
+            "aeq_section_q07")
+
+Alcohol_Expectancies <- Alcohol_Expectancies[myvars]
+
+#Compute score for General Positive Effects 
+Alcohol_Expectancies$AE_General_Positive_Effects <- rowMeans(Alcohol_Expectancies[,c("aeq_section_q01", "aeq_section_q02", 
+                                    "aeq_section_q04", "aeq_section_q06")], na.rm=TRUE)
+
+#Compute score for Potential Negative Effects 
+Alcohol_Expectancies$AE_Potential_Negative_Effects <- rowMeans(Alcohol_Expectancies[,c("aeq_section_q03", "aeq_section_q05", 
+                                                                                     "aeq_section_q07")], na.rm=TRUE)
+#Import baseline alcohol sipping experience and context
+Sipping_Baseline <- read.csv("abcd_ysu02.csv", header=TRUE)
+
+myvars <- c("subjectkey",
+            "tlfb_alc",          ## Ever heard of alcohol?
+            "tlfb_alc_sip",      ## A sip of alcohol
+            "tlfb_alc_use",      ## A full drink of alcohol
+            "isip_1",            ## How many total times have you had a sip of alcohol? 
+            "su_isip_1_calc",    ## Same as above except NAs have been repalced with 0
+            "isip_1b_yn",        ## Have you ever had alcohol not as part of a religious ceremony? 
+            "isip_1b_2",         ## How many times? (not at religious ceremony)
+            "su_isip_1b_2_calc", ## How many times? (same var as above except NA vals from isip_1b_2 are replaced with 0)  
+            "isip_1d_2",         ## Age of first sip
+            "isip_2_2",          ## Did you continue to drink (and finish it) after first sip?
+            "isip_3_2",          ## Type of alcohol?
+            "isip_4_2",          ## Whose drink was it/who it belonged to?
+            "isip_5_2",          ## Did the person offer you a sip or did you take it when they weren't looking?
+            "isip_6_2")          ## Do you remember when this happened, or did you find out later?
+
+Sipping_Baseline <- Sipping_Baseline[myvars]
+
+#Import follow-up alcohol sipping experience and context
+Sipping <- read.csv("abcd_ysuip01.csv", header=TRUE)
+
+myvars <- c("subjectkey",
+            "tlfb_alc_l",        ## Ever heard of alcohol? (They don't ask if the participant answered yes at baseline)
+            "tlfb_alc_sip_l",    ## A sip of alcohol
+            "tlfb_alc_use_l",    ## A full drink of alcohol
+            "isip_1_l",          ## How many total times have you had a sip of alcohol since the last time we saw you?
+            "su_isip_1_calc_l",  ## Same as above except NAs have been repalced with 0
+            "isip_1b_yn_l",      ## Since the last time we saw you, have you had a sip of alcohol that was not part of a religious ceremony?
+            "isip_1b_l",         ## How many times? (not as part of religious ceremony?)
+            "su_isip_1b_calc_l", ## How many times? (same var as above except NA vals from isip_1b_l are replaced with 0)
+            "isip_1d_l",         ## Age of first sip
+            "isip_2_l",          ## Did you continue to drink (and finish it) after first sip?
+            "isip_3_l",          ## Type of alcohol?
+            "isip_4_l",          ## Whose drink was it/who it belonged to?
+            "isip_5_l",          ## Did the person offer you a sip or did you take it when they weren't looking?
+            "isip_6_l")          ## Do you remember when this happened, or did you find out later? 
+
+Sipping <- Sipping[myvars]
+
+#Import family history assessment part 1 (alcohol problematic use)
+Fam_History <- read.csv("fhxp102.csv", header=TRUE)
+
+myvars <- c("subjectkey",
+            "famhx_4_p",                   # Has ANY blood relative of your child ever had any problems due to alcohol, such as:
+            "famhx_4d_p___0",              # (Biological mother) No problems
+            "famhx_4d_p___1",              # Marital
+            "famhx_4d_p___2",              # Work
+            "famhx_4d_p___3",              # Arrests/DUI
+            "famhx_4d_p___4",              # Alcohol treatment program
+            "famhx_4d_p___5",              # School
+            "famhx_4d_p___6",              # Isolated self, arguments, drunk a lot 
+            "famhx_4d_p___7",              # Health
+            "famhx_4d_p___999",            # Don't know
+            "famhx4a_p___0",               # (Biological father) No problems
+            "famhx4a_p___1",               # Marital
+            "famhx4a_p___2",               # Work
+            "famhx4a_p___3",               # Arrests/DUI
+            "famhx4a_p___4",               # Alcohol treatment program
+            "famhx4a_p___5",               # School
+            "famhx4a_p___6",               # Isolated self, arguments, drunk a lot
+            "famhx4a_p___7",               # Health
+            "famhx4a_p___999")             # Don't know
+
+Fam_History <- Fam_History[myvars]
+
+#Change don't know and refuse to answer to NA 
+Fam_History$famhx_4_p[Fam_History$famhx_4_p>998] <- NA
+Fam_History$famhx_4_p[Fam_History$famhx_4_p==7] <- NA
+
+#Collapse categorical alcohol problematic use to overall problematic use 0=no or 1=yes
+Fam_History$Mother_alcohol_use[Fam_History$famhx_4d_p___1==1 | Fam_History$famhx_4d_p___2==1 | Fam_History$famhx_4d_p___3==1 | Fam_History$famhx_4d_p___4==1 | 
+                                     Fam_History$famhx_4d_p___5==1 | Fam_History$famhx_4d_p___6==1 | Fam_History$famhx_4d_p___7==1] <- 1
+
+Fam_History$Mother_alcohol_use[Fam_History$famhx_4d_p___1==0 & Fam_History$famhx_4d_p___2==0 & Fam_History$famhx_4d_p___3==0 & Fam_History$famhx_4d_p___4==0 & 
+                                     Fam_History$famhx_4d_p___5==0 & Fam_History$famhx_4d_p___6==0 & Fam_History$famhx_4d_p___7==0] <- 0
+
+#Change a "yes" response from "No Problematic Use" to a 0 in new column 
+Fam_History$Mother_alcohol_use[Fam_History$famhx_4d_p___0==1] <- 0
+
+#Include people in the no problematic use category who answered no to anyone in family having alcohol problematic use
+Fam_History$Mother_alcohol_use[Fam_History$famhx_4_p==0] <- 0
+
+#Collapse categorical alcohol problematic use to overall 0=no or 1=yes
+Fam_History$Father_alcohol_use[Fam_History$famhx4a_p___1==1 | Fam_History$famhx4a_p___2==1 | Fam_History$famhx4a_p___3==1 | Fam_History$famhx4a_p___4==1 | 
+                                     Fam_History$famhx4a_p___5==1 | Fam_History$famhx4a_p___6==1 | Fam_History$famhx4a_p___7==1] <- 1
+
+Fam_History$Father_alcohol_use[Fam_History$famhx4a_p___1==0 & Fam_History$famhx4a_p___2==0 & Fam_History$famhx4a_p___3==0 & Fam_History$famhx4a_p___4==0 & 
+                                     Fam_History$famhx4a_p___5==0 & Fam_History$famhx4a_p___6==0 & Fam_History$famhx_4d_p___7==0] <- 0
+
+#Change a "yes" response from "No Problems" to a 0 in new column 
+Fam_History$Father_alcohol_use[Fam_History$famhx4a_p___0==1] <- 0
+
+#Include people in the no problematic use category who answered no to anyone in family having alcohol problematic use
+Fam_History$Father_alcohol_use[Fam_History$famhx_4_p==0] <- 0
+
+#Drop constructional variables to assist with imputation
+Fam_History <- subset(Fam_History, select = c(subjectkey, Mother_alcohol_use, Father_alcohol_use))
+
+#Import family ID
+Family_ID <- read.csv("acspsw03.csv", header=TRUE)
+
+myvars <- c("subjectkey", 
+            "rel_family_id")
+
+Family_ID <- Family_ID[myvars]
+
+#Import site ID
+Site_ID <- read.csv("abcd_lt01.csv", header=TRUE)
+
+myvars <- c("subjectkey",
+            "eventname",
+            "site_id_l")
+
+Site_ID <- Site_ID[myvars]
+
+#Filter for follow-up only
+Site_ID <- subset(Site_ID, eventname == "1_year_follow_up_y_arm_1")
+
+#Drop eventname
+Site_ID <- subset(Site_ID, select = -c(eventname))
+
+#Merge variables to be used in imputation
+myData <- merge(Demo_Baseline, Demo_Longitudinal, by="subjectkey")
+myData <- merge(myData, Fam_History, by="subjectkey")
+
+#Identify and count missing values
+sapply(myData, function(x) sum(is.na(x)))
+missing <- sapply(myData, function(x) sum(is.na(x)))
+
+#Remove columns missing >5% data inappropriately **Manually identify from line above command (5% = .05*4951 ~ 248)
+#Note: combined income (demo_comb_income_v2_l) is retained in accordance with study protocol
+#All columns (except demo_comb_income_v2_l) have less than 5% missing data
+
+#Calculate percent missing rows
+#To be greater than 5%, count needs to be higher than the length of full dataset including AE/Sipping measures (remember to only count subjectkey once) =  myData(11) + Alcohol_Expectancies(9) + Sipping(14) + Sipping_Baseline(14) + Family_ID(1) + Site_ID(1) = 50
+percentmiss <- function(x) {(sum(is.na(x))/50) * 100}
+missingsubjects <- apply(myData,1,percentmiss)
+summary(missingsubjects)
+table(missingsubjects)
+
+#Exclude rows missing > 5% (n = 53)
+excluded_cases1 <- myData[missingsubjects > 5, ]
+myData <- myData[missingsubjects < 5.01, ]
+
+#Exclude participants missing every AEQ variable (n = 56) (overlap of 8 participants in exclusion 1, so only 48 are dropped)
+excluded_cases2 <- subset(Alcohol_Expectancies, is.na(aeq_section_q01) & is.na(aeq_section_q02) & is.na(aeq_section_q03) 
+                          & is.na(aeq_section_q04) & is.na(aeq_section_q05) & is.na(aeq_section_q06) & is.na(aeq_section_q07))
+
+myData <- anti_join(myData, excluded_cases2, by="subjectkey")
+
+#Exclude  participants who's surveys were switched (n=2)
+excluded_cases3 <- subset(myData, subjectkey== "[subject key removed for privacy]" | subjectkey== "[subject key removed for privacy]")
+
+myData <- anti_join(myData, excluded_cases3, by="subjectkey")
+
+#Change categorical vars to factors prior to imputation 
+myData$Sex <- factor(myData$Sex,
+                      levels = c(0,1),
+                      labels = c("Male", "Female"))
+
+myData$demo_comb_income_v2_l <- factor(myData$demo_comb_income_v2_l,
+                                        levels = c(1,2,3),
+                                        labels = c("<$35,000", "$35,000-$99,999", ">$100,000"))
+
+myData$demo_prnt_empl_v2_l <- factor(myData$demo_prnt_empl_v2_l,
+                                       levels = c(1,2,3),
+                                       labels = c("Employed", "Unemployed", "Other"))
+
+myData$demo_relig_v2_l <- factor(myData$demo_relig_v2_l,
+                                     levels = c(1,2,3,4,5,6,7,8,9),
+                                     labels = c("Christian", "Jewish", "Muslim", "Buddhist", "Hindu", "Atheist", "Agnostic", "Something else", "Nothing"))
+
+myData$demo_prnt_marital_v2_l <- factor(myData$demo_prnt_marital_v2_l,
+                                    levels = c(1,2),
+                                    labels = c("Married", "Not married"))
+
+myData$Mother_alcohol_use <- factor(myData$Mother_alcohol_use,
+                                     levels = c(0,1),
+                                     labels = c("No", "Yes"))
+
+myData$Father_alcohol_use <- factor(myData$Father_alcohol_use,
+                                    levels = c(0,1),
+                                    labels = c("No", "Yes"))
+
+#Remove race and sex from myData and place in new data set (will be merged in after imputation)
+myData_2 <- subset(myData, select = c(subjectkey, race.eth.8level, Sex))
+
+#Create data set without sex and race for imputation
+myData <- subset(myData, select = -c(race.eth.8level, Sex))
+
+#####################################
+#Impute missing data for income, employment, religious preference, marital status, mother alcohol problematic use, and father alcohol problematic use
+#Load Imputation Matrices
+init = mice(myData, m=1, maxit=0)
+meth = init$meth
+pred = init$pred
+
+#Remove subjectkey from prediction matrix b/c it shouldn't have influence 
+pred[, c("subjectkey")]=0
+
+#Specify method for imputation
+meth["demo_prnt_empl_v2_l"]="polyreg"
+meth["demo_prnt_marital_v2_l"]="logreg"
+meth["demo_comb_income_v2_l"]="polyreg"
+meth["Mother_alcohol_use"]="logreg"
+meth["Father_alcohol_use"]="logreg"
+meth["demo_relig_v2_l"]="polyreg"
+
+#Impute data
+set.seed(124)
+imputed <- mice(myData, method=meth, predictorMatrix=pred, mech = "MNAR")
+
+#Create new imputed dataset
+myData <- complete(imputed)
+
+#Merge outcome variables
+myData <- merge(myData, myData_2, by="subjectkey")
+myData <- merge(myData, Family_ID, by="subjectkey")
+myData <- merge(myData, Site_ID, by="subjectkey")
+myData <- merge(myData, Alcohol_Expectancies, by="subjectkey")
+myData <- merge(myData, Sipping_Baseline, by="subjectkey")
+myData <- merge(myData, Sipping, by="subjectkey")
+
+#####################################
+#Make a data set for participants who've sipped to be used in Aim 1b
+Yes_Sip <- subset(myData, tlfb_alc_sip == 1 | tlfb_alc_sip_l == 1)
+
+#Exclude participants who've only sipped in a religious context (n = 296)
+Yes_Sip <- subset(myData, isip_1b_yn == 1 | isip_1b_yn_l == 1)
+
+#Make a column to indicate if the participant has sipped
+Yes_Sip$Sip <- rep(1,nrow(Yes_Sip)) 
+
+#Make a data set for participants who've never sipped
+No_Sip <- anti_join(myData, Yes_Sip, by="subjectkey")
+
+#Make a column to indicate if the participant has sipped
+No_Sip$Sip <- rep(0,nrow(No_Sip)) 
+
+#Exclude participants missing every sipping context variable (n = 8) 
+#(originally had this before imputation w/ subjectkeys listed out, but realized that subjectkeys will probably not be allowed to be published on github,
+#so had to move this exclusion after the Yes_Sip dataset was created for it to be possible)
+excluded_cases4 <- subset(Yes_Sip, is.na(isip_1d_2) & is.na(isip_2_2) & is.na(isip_3_2) & is.na(isip_4_2) &
+                            is.na(isip_5_2) & is.na(isip_6_2) & is.na(isip_1d_l) & is.na(isip_2_l) & 
+                            is.na(isip_3_l) & is.na(isip_4_l) & is.na(isip_5_l) & is.na(isip_6_l))
+
+Yes_Sip <- anti_join(Yes_Sip, excluded_cases4, by="subjectkey")
+
+#Exclude participants reporting more nonreligious sips than total sips (n = 8)
+excluded_cases5 <- subset(Yes_Sip, isip_1 < isip_1b_2 | isip_1_l < isip_1b_l)
+
+Yes_Sip <- anti_join(Yes_Sip, excluded_cases5, by="subjectkey")
+
+#Join back together with new column added
+myData <- join(Yes_Sip, No_Sip, by="subjectkey", type="full")
+
+#Convert Sip to factor
+myData$Sip <- factor(myData$Sip,
+                        levels = c(0,1),
+                        labels = c("No", "Yes"))
+
+#Write .csv to use for Aim 1a and Aim 2
+#write.csv(myData, file="ABCD_AE_Aim1a.csv", row.names=FALSE)
+
+##########################
+#Construct variables for Aim 1b (Table 2) on context of first sip
+#Calculate total sips (not in religious ceremony) by adding total sips at baseline and total sips since the last time the participant was seen
+
+Yes_Sip$Total_Sips <- rowSums(Yes_Sip[,c("isip_1b_2", "isip_1b_l")], na.rm=TRUE)
+
+#If participant reported first sip at baseline and if baseline sip was outside of a religious context, paste baseline response; otherwise, paste follow-up response
+Yes_Sip$Sip_Age <- ifelse((Yes_Sip$tlfb_alc_sip == 1 & Yes_Sip$isip_1b_yn == 1), Yes_Sip$isip_1d_2, Yes_Sip$isip_1d_l)
+Yes_Sip$Finished_Drink <- ifelse((Yes_Sip$tlfb_alc_sip == 1 & Yes_Sip$isip_1b_yn == 1), Yes_Sip$isip_2_2, Yes_Sip$isip_2_l)
+Yes_Sip$Alcohol_Type <- ifelse((Yes_Sip$tlfb_alc_sip == 1 & Yes_Sip$isip_1b_yn == 1), Yes_Sip$isip_3_2, Yes_Sip$isip_3_l)
+Yes_Sip$Who_Drink_Belonged_To <- ifelse((Yes_Sip$tlfb_alc_sip == 1 & Yes_Sip$isip_1b_yn == 1), Yes_Sip$isip_4_2, Yes_Sip$isip_4_l)
+Yes_Sip$Offered_Sip <- ifelse((Yes_Sip$tlfb_alc_sip == 1 & Yes_Sip$isip_1b_yn == 1), Yes_Sip$isip_5_2, Yes_Sip$isip_5_l)
+Yes_Sip$Remember_Sip <- ifelse((Yes_Sip$tlfb_alc_sip == 1 & Yes_Sip$isip_1b_yn == 1), Yes_Sip$isip_6_2, Yes_Sip$isip_6_l)
+
+#Convert categorical vars to factors in order to tell categories more easily
+Yes_Sip$Sip <- factor(Yes_Sip$Sip,
+                     levels = c(0,1),
+                     labels = c("No", "Yes"))
+
+Yes_Sip$Finished_Drink <- factor(Yes_Sip$Finished_Drink,
+                           levels = c(0,1),
+                           labels = c("No", "Yes"))
+
+Yes_Sip$Alcohol_Type <- factor(Yes_Sip$Alcohol_Type,
+                           levels = c(0,1,2,3,4,5,6,7,8,9,10),
+                           labels = c("NA", "Beer", "Wine coolers", "Shots of hard alcohol", "Mixed drinks", "Malt liquor", 
+                                      "Wine/champagne", "Fortified wine", "Liqueurs/Cordials", "Other", "I don't know"))
+
+Yes_Sip$Who_Drink_Belonged_To <- factor(Yes_Sip$Who_Drink_Belonged_To,
+                           levels = c(0,1,2,3,4,5,6,7,8,9,10,11,12),
+                           labels = c("NA", "Mom", "Dad", "Other guardian", "An uncle or aunt", "Brother or sister who was age 21 or older",
+                                      "Brother or sister who was age 20 or younger", "Other adult (non-guardian) family member",
+                                      "Another adult", "Friend", "Other young person who is not a friend (20 years or younger)",
+                                      "I didn't know the person/it was a stranger", "I don't know who the drink belonged to"))
+
+Yes_Sip$Offered_Sip <- factor(Yes_Sip$Offered_Sip,
+                           levels = c(0,1,2,3),
+                           labels = c("NA", "They offered me a sip", "I intentionally took it when they weren't looking",
+                                      "I accidentally took it when they weren't looking"))
+
+Yes_Sip$Remember_Sip <- factor(Yes_Sip$Remember_Sip,
+                           levels = c(0,1,2),
+                           labels = c("NA", "Remember it", "Don't remember it"))
+
+#Write .csv to use for Table 2
+#write.csv(Yes_Sip, file="ABCD_AE_Aim1b.csv", row.names=FALSE)                  
+
+#Additional notes:
+#For participants with missing data at baseline but present at follow-up, data was taken from follow-up for every context variable to maintain consistency. 
