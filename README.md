@@ -1,1 +1,1 @@
-# R syntax for the processing and analysis of data for the manuscript, "The association between child alcohol sipping and alcohol expectancies in the ABCD study", published in Drug and Alcohol Dependence (https://www.sciencedirect.com/science/article/abs/pii/S0376871621001198).
+
